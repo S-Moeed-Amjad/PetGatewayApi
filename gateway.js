@@ -60,6 +60,10 @@ mount("/ReturnPet", petBase + "unadopt");
 mount("/Reserve", petBase + "reserve");
 mount("/Vacant", petBase + "vacant");
 mount("/addImages", petBase + "add-images");
+mount(
+  "/petSwagger",
+  "https://petadoptionwebapi-1.onrender.com/swagger/index.html"
+);
 
 // Other services (prefix-level passthroughs)
 mount("/orders", config.services.orders);
