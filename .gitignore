@@ -1,0 +1,65 @@
+# Node dependencies
+node_modules/
+.npm/
+.pnpm-store/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage / testing
+coverage/
+.nyc_output/
+jest-html-reporters-*
+jest-stare/
+
+# Build output / caches
+dist/
+build/
+.tmp/
+tmp/
+temp/
+.cache/
+.parcel-cache/
+eslintcache
+.stylelintcache
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# TypeScript (if added later)
+*.tsbuildinfo
+
+# Editors / OS junk
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Archives / misc
+*.tgz
+*.zip
+
+# SSL keys & certs (never commit secrets)
+*.pem
+*.p12
+*.crt
+*.key
+
+# OneDrive temp files (Windows)
+~$*
