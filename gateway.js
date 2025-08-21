@@ -52,6 +52,14 @@ const petBase = config.services.PetAdoptionServices; // expects trailing slash i
 mount("/getAllPets", petBase + "all"); // GET http://localhost:8080/getAllPets -> .../api/Pet/all
 mount("/addPet", petBase + "add"); // POST http://localhost:8080/addPet   -> .../api/Pet/add
 mount("/getPetById", petBase); // GET http://localhost:8080/getPetById/5 -> .../api/Pet/5
+mount("/getAllAdoptions", petBase + "adoptions");
+mount("/getAllReturns", petBase + "unadoptions");
+mount("/getImagesById", petBase + "images");
+mount("/AdoptPet", petBase + "adopt");
+mount("/ReturnPet", petBase + "unadopt");
+mount("/Reserve", petBase + "reserve");
+mount("/Vacant", petBase + "vacant");
+mount("/addImages", petBase + "add-images");
 
 // Other services (prefix-level passthroughs)
 mount("/orders", config.services.orders);
