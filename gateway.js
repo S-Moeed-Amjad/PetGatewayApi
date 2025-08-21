@@ -68,7 +68,14 @@ mount(
 // Other services (prefix-level passthroughs)
 mount("/orders", config.services.orders);
 mount("/ml", config.services.ml);
-mount("/billing", config.services.billing);
+// --- Payment APIs ---
+mount("/stripeCheckout", "https://stripe.faithdiscipline.org.uk/stripe-checkout.php"); // POST: amount, email, pet_id
+mount("/getAllPayments", "https://stripe.faithdiscipline.org.uk/Payments_APIs/get_all_payments.php"); // GET
+mount("/editPayment", "https://stripe.faithdiscipline.org.uk/Payments_APIs/edit_payments.php"); // POST: payment_id, status
+
+// --- Admin Login API ---
+mount("/adminLogin", "https://stripe.faithdiscipline.org.uk/login.php"); // POST: email, password
+
 
 // Health check
 app.get("/health", (_, res) =>
