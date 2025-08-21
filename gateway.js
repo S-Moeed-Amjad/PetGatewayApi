@@ -65,6 +65,14 @@ mount(
   "https://petadoptionwebapi-1.onrender.com/swagger/index.html"
 );
 
+//treatment services
+mount("/add-treatment", "https://medication-service.onrender.com/add-treatments");   // POST
+mount("/all-treatments", "https://medication-service.onrender.com/all-treatments"); // GET
+mount("/treatments/<pet_id>", "https://medication-service.onrender.com/treatments/<pet_id>");         // GET with petId
+mount("/treatment/<int:id>", "https://medication-service.onrender.com/treatment/<int:id>"); // PUT
+mount("/update-treatment/<int:id>", "https://medication-service.onrender.com/update-treatment/<int:id>"); // DELETE
+mount("/delete-treatment/<int:id>", "https://medication-service.onrender.com/delete-treatment/<int:id>");
+
 // Other services (prefix-level passthroughs)
 mount("/orders", config.services.orders);
 mount("/ml", config.services.ml);
