@@ -66,24 +66,65 @@ mount(
 );
 
 //treatment services
-mount("/add-treatment", "https://medication-service.onrender.com/add-treatments");   // POST
-mount("/all-treatments", "https://medication-service.onrender.com/all-treatments"); // GET
-mount("/treatments/<pet_id>", "https://medication-service.onrender.com/treatments/<pet_id>");         // GET with petId
-mount("/treatment/<int:id>", "https://medication-service.onrender.com/treatment/<int:id>"); // PUT
-mount("/update-treatment/<int:id>", "https://medication-service.onrender.com/update-treatment/<int:id>"); // DELETE
-mount("/delete-treatment/<int:id>", "https://medication-service.onrender.com/delete-treatment/<int:id>");
+mount(
+  "/add-treatment",
+  "https://medication-service.onrender.com/add-treatments"
+); // POST
+mount(
+  "/all-treatments",
+  "https://medication-service.onrender.com/all-treatments"
+); // GET
+mount(
+  "/treatments/<pet_id>",
+  "https://medication-service.onrender.com/treatments/<pet_id>"
+); // GET with petId
+mount(
+  "/treatment/<int:id>",
+  "https://medication-service.onrender.com/treatment/<int:id>"
+); // PUT
+mount(
+  "/update-treatment/<int:id>",
+  "https://medication-service.onrender.com/update-treatment/<int:id>"
+); // DELETE
+mount(
+  "/delete-treatment/<int:id>",
+  "https://medication-service.onrender.com/delete-treatment/<int:id>"
+);
 
 // Other services (prefix-level passthroughs)
 mount("/orders", config.services.orders);
 mount("/ml", config.services.ml);
 // --- Payment APIs ---
-mount("/stripeCheckout", "https://stripe.faithdiscipline.org.uk/stripe-checkout.php"); // POST: amount, email, pet_id
-mount("/getAllPayments", "https://stripe.faithdiscipline.org.uk/Payments_APIs/get_all_payments.php"); // GET
-mount("/editPayment", "https://stripe.faithdiscipline.org.uk/Payments_APIs/edit_payments.php"); // POST: payment_id, status
+mount(
+  "/stripeCheckout",
+  "https://stripe.faithdiscipline.org.uk/stripe-checkout.php"
+); // POST: amount, email, pet_id
+mount(
+  "/getAllPayments",
+  "https://stripe.faithdiscipline.org.uk/Payments_APIs/get_all_payments.php"
+); // GET
+mount(
+  "/editPayment",
+  "https://stripe.faithdiscipline.org.uk/Payments_APIs/edit_payments.php"
+); // POST: payment_id, status
 
 // --- Admin Login API ---
 mount("/adminLogin", "https://stripe.faithdiscipline.org.uk/login.php"); // POST: email, password
 
+// --- User API ---
+const userApi = config.userApi;
+
+mount("/users", userApi.base); // POST: create user, GET: all users (if supported)
+mount("/users/login", userApi.login); // POST: login
+mount("/users/forgot-password", userApi.forgotPassword); // POST: forgot password
+mount("/users/verify-otp", userApi.verifyOtp); // POST: verify OTP
+mount("/users/reset-password", userApi.resetPassword); // POST: reset password
+mount("/users/one-user-data/:email", userApi.oneUserData); // GET: user by email
+mount("/users/by-id/:id", userApi.byId); // GET: user by id
+mount("/users/delete-user/:email", userApi.deleteUser); // DELETE: user by email
+mount("/users/delete-by-id/:id", userApi.deleteById); // DELETE: user by id
+mount("/users/get-all-users", userApi.getAllUsers); // GET: all users
+mount("/users/get-all-users-id", userApi.getAllUsersId); // GET: all user ids
 
 // Health check
 app.get("/health", (_, res) =>
