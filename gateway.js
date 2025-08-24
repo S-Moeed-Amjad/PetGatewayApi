@@ -107,7 +107,6 @@ safeMount("/ReturnPet", petBase + "unadopt");
 safeMount("/Reserve", petBase + "reserve");
 safeMount("/Vacant", petBase + "vacant");
 safeMount("/addImages", petBase + "add-images");
-
 // Swagger bundle
 safeMount("/swagger", "https://petadoptionwebapi-1.onrender.com/swagger");
 
