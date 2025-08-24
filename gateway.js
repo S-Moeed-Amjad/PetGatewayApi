@@ -10,7 +10,7 @@ const app = express();
 
 app.set("trust proxy", 1); // correct client IPs behind proxies/load balancers
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+// app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
@@ -95,6 +95,9 @@ const medHost = "https://medication-service.onrender.com";
 // --- Pet Adoption endpoints ---
 safeMount("/getAllPets", petBase + "all");
 safeMount("/addPet", petBase + "add");
+safeMount("/editPet", petBase + "edit");
+safeMount("/deletePet", petBase + "delete");
+safeMount("/getPetByOwner", petBase + "by-owner");
 safeMount("/getPetById", petBase); // /getPetById/5 -> .../api/Pet/5
 safeMount("/getAllAdoptions", petBase + "adoptions");
 safeMount("/getAllReturns", petBase + "unadoptions");
