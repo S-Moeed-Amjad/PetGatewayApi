@@ -3,25 +3,26 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
-const rateLimit = require("express-rate-limit");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const config = require("./env");
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: "2mb" }));
+// NOTE: If you need multipart/form-data (file uploads), do NOT parse body globally.
+// Keep these for JSON/forms only:
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
-app.use(rateLimit({ windowMs: 60_000, max: 200 }));
-
 // Helper to mount a proxy (prefix -> targetBaseOrEndpoint)
 // Example: mount("/getAllPets", base + "all")  => /getAllPets -> .../all
 //          mount("/getPetById", base)          => /getPetById/5 -> .../5
-function mount(prefix, target) {
+function safeMount(prefix, target) {
   if (!target) {
-    console.error(`❌ Missing target for mount("${prefix}", ...)`);
-    process.exit(1);
+    console.warn(`⚠️ Skipping mount("${prefix}") — no target provided`);
+    return;
   }
+
   const pathRewriteMap = {};
   pathRewriteMap[`^${prefix}`] = "";
 
@@ -32,6 +33,43 @@ function mount(prefix, target) {
       changeOrigin: true,
       pathRewrite: pathRewriteMap,
       proxyTimeout: 5000,
+
+      // Ensure POST/PUT/PATCH bodies reach the upstream
+      onProxyReq: (proxyReq, req) => {
+        if (
+          !["GET", "HEAD"].includes(req.method) &&
+          req.body &&
+          Object.keys(req.body).length
+        ) {
+          const ct = req.headers["content-type"] || "";
+          let bodyData;
+
+          if (ct.includes("application/json")) {
+            bodyData = JSON.stringify(req.body);
+            proxyReq.setHeader("Content-Type", "application/json");
+          } else if (ct.includes("application/x-www-form-urlencoded")) {
+            bodyData = new URLSearchParams(req.body).toString();
+            proxyReq.setHeader(
+              "Content-Type",
+              "application/x-www-form-urlencoded"
+            );
+          }
+
+          if (bodyData) {
+            proxyReq.setHeader("Content-Length", Buffer.byteLength(bodyData));
+            proxyReq.write(bodyData);
+          }
+        }
+      },
+
+      onProxyRes: (proxyRes, req) => {
+        if (proxyRes.statusCode === 429) {
+          console.warn(
+            `[UPSTREAM 429] ${target} <- ${req.method} ${req.originalUrl}`
+          );
+        }
+      },
+
       onError: (err, req, res) => {
         console.error(
           `Proxy error for ${prefix} -> ${target}`,
@@ -47,98 +85,99 @@ function mount(prefix, target) {
 
 // ---- Upstream bases (from env.js) ----
 const petBase = config.services.PetAdoptionServices; // expects trailing slash in .env
+const medHost = "https://medication-service.onrender.com"; // Python service base
 
-// --- Mount each microservice endpoint (per your style) ---
-mount("/getAllPets", petBase + "all"); // GET http://localhost:8080/getAllPets -> .../api/Pet/all
-mount("/addPet", petBase + "add"); // POST http://localhost:8080/addPet   -> .../api/Pet/add
-mount("/getPetById", petBase); // GET http://localhost:8080/getPetById/5 -> .../api/Pet/5
-mount("/getAllAdoptions", petBase + "adoptions");
-mount("/getAllReturns", petBase + "unadoptions");
-mount("/getImagesById", petBase + "images");
-mount("/AdoptPet", petBase + "adopt");
-mount("/ReturnPet", petBase + "unadopt");
-mount("/Reserve", petBase + "reserve");
-mount("/Vacant", petBase + "vacant");
-mount("/addImages", petBase + "add-images");
-mount(
-  "/petSwagger",
-  "https://petadoptionwebapi-1.onrender.com/swagger/index.html"
-);
+// --- Pet Adoption endpoints (per your style) ---
+safeMount("/getAllPets", petBase + "all");
+safeMount("/addPet", petBase + "add");
+safeMount("/getPetById", petBase); // /getPetById/5 -> .../api/Pet/5
+safeMount("/getAllAdoptions", petBase + "adoptions");
+safeMount("/getAllReturns", petBase + "unadoptions");
+safeMount("/getImagesById", petBase + "images");
+safeMount("/AdoptPet", petBase + "adopt");
+safeMount("/ReturnPet", petBase + "unadopt");
+safeMount("/Reserve", petBase + "reserve");
+safeMount("/Vacant", petBase + "vacant");
+safeMount("/addImages", petBase + "add-images");
 
-//treatment services
-mount(
-  "/add-treatment",
-  "https://medication-service.onrender.com/add-treatments"
-); // POST
-mount(
-  "/all-treatments",
-  "https://medication-service.onrender.com/all-treatments"
-); // GET
-mount(
-  "/treatments/<pet_id>",
-  "https://medication-service.onrender.com/treatments/<pet_id>"
-); // GET with petId
-mount(
-  "/treatment/<int:id>",
-  "https://medication-service.onrender.com/treatment/<int:id>"
-); // PUT
-mount(
-  "/update-treatment/<int:id>",
-  "https://medication-service.onrender.com/update-treatment/<int:id>"
-); // DELETE
-mount(
-  "/delete-treatment/<int:id>",
-  "https://medication-service.onrender.com/delete-treatment/<int:id>"
-);
+// Swagger: mount the whole /swagger prefix so assets load
+safeMount("/swagger", "https://petadoptionwebapi-1.onrender.com/swagger");
 
-// Other services (prefix-level passthroughs)
-mount("/orders", config.services.orders);
-mount("/ml", config.services.ml);
+// --- Treatment services (fix Flask-style placeholders) ---
+// Use clean prefixes; the tail path (like /123) will be forwarded as-is:
+safeMount("/add-treatment", `${medHost}/add-treatments`); // POST
+safeMount("/all-treatments", `${medHost}/all-treatments`); // GET
+safeMount("/treatments", `${medHost}/treatments`); // GET /treatments/:pet_id
+safeMount("/treatment", `${medHost}/treatment`); // PUT /treatment/:id
+safeMount("/update-treatment", `${medHost}/update-treatment`); // PUT /update-treatment/:id
+safeMount("/delete-treatment", `${medHost}/delete-treatment`); // DELETE /delete-treatment/:id
+
+// --- Other services ---
+safeMount("/orders", config.services.orders);
+safeMount("/ml", config.services.ml);
+
 // --- Payment APIs ---
-mount(
+safeMount(
   "/stripeCheckout",
   "https://stripe.faithdiscipline.org.uk/stripe-checkout.php"
-); // POST: amount, email, pet_id
-mount(
+); // POST
+safeMount(
   "/getAllPayments",
   "https://stripe.faithdiscipline.org.uk/Payments_APIs/get_all_payments.php"
 ); // GET
-mount(
+safeMount(
   "/editPayment",
   "https://stripe.faithdiscipline.org.uk/Payments_APIs/edit_payments.php"
-); // POST: payment_id, status
+); // POST
 
 // --- Admin Login API ---
-mount("/adminLogin", "https://stripe.faithdiscipline.org.uk/login.php"); // POST: email, password
+safeMount("/adminLogin", "https://stripe.faithdiscipline.org.uk/login.php"); // POST
 
 // --- User API ---
-const userApi = config.userApi;
+// If env.js doesn't define userApi, read from env and mount only those provided.
+const userApi = config.userApi ?? {
+  base: process.env.USER_API_BASE,
+  login: process.env.USER_API_LOGIN,
+  forgotPassword: process.env.USER_API_FORGOT_PASSWORD,
+  verifyOtp: process.env.USER_API_VERIFY_OTP,
+  resetPassword: process.env.USER_API_RESET_PASSWORD,
+  oneUserData: process.env.USER_API_ONE_USER_DATA,
+  byId: process.env.USER_API_BY_ID,
+  deleteUser: process.env.USER_API_DELETE_USER,
+  deleteById: process.env.USER_API_DELETE_BY_ID,
+  getAllUsers: process.env.USER_API_GET_ALL,
+  getAllUsersId: process.env.USER_API_GET_ALL_IDS,
+};
 
-mount("/users", userApi.base); // POST: create user, GET: all users (if supported)
-mount("/users/login", userApi.login); // POST: login
-mount("/users/forgot-password", userApi.forgotPassword); // POST: forgot password
-mount("/users/verify-otp", userApi.verifyOtp); // POST: verify OTP
-mount("/users/reset-password", userApi.resetPassword); // POST: reset password
-mount("/users/one-user-data/:email", userApi.oneUserData); // GET: user by email
-mount("/users/by-id/:id", userApi.byId); // GET: user by id
-mount("/users/delete-user/:email", userApi.deleteUser); // DELETE: user by email
-mount("/users/delete-by-id/:id", userApi.deleteById); // DELETE: user by id
-mount("/users/get-all-users", userApi.getAllUsers); // GET: all users
-mount("/users/get-all-users-id", userApi.getAllUsersId); // GET: all user ids
+safeMount("/users", userApi.base);
+safeMount("/users/login", userApi.login);
+safeMount("/users/forgot-password", userApi.forgotPassword);
+safeMount("/users/verify-otp", userApi.verifyOtp);
+safeMount("/users/reset-password", userApi.resetPassword);
+safeMount("/users/one-user-data", userApi.oneUserData); // call as /users/one-user-data/:email
+safeMount("/users/by-id", userApi.byId); // call as /users/by-id/:id
+safeMount("/users/delete-user", userApi.deleteUser); // call as /users/delete-user/:email
+safeMount("/users/delete-by-id", userApi.deleteById); // call as /users/delete-by-id/:id
+safeMount("/users/get-all-users", userApi.getAllUsers);
+safeMount("/users/get-all-users-id", userApi.getAllUsersId);
 
-// Health check
+// ---- Health ----
 app.get("/health", (_, res) =>
   res.json({ ok: true, ts: new Date().toISOString() })
 );
 
-// Start server
+// ---- Start ----
 app.listen(config.port, () => {
   console.log(`✅ Gateway running on http://localhost:${config.port}`);
   console.log("Routes:");
-  console.log(`  /getAllPets     -> ${petBase}all`);
-  console.log(`  /addPet         -> ${petBase}add`);
-  console.log(`  /getPetById/:id -> ${petBase}{id}`);
-  console.log(`  /orders         -> ${config.services.orders}`);
-  console.log(`  /ml             -> ${config.services.ml}`);
-  console.log(`  /billing        -> ${config.services.billing}`);
+  console.log(`  /getAllPets           -> ${petBase}all`);
+  console.log(`  /addPet               -> ${petBase}add`);
+  console.log(`  /getPetById/:id       -> ${petBase}{id}`);
+  console.log(
+    `  /swagger/*            -> https://petadoptionwebapi-1.onrender.com/swagger/*`
+  );
+  console.log(`  /treatments/:pet_id   -> ${medHost}/treatments/:pet_id`);
+  console.log(`  /treatment/:id        -> ${medHost}/treatment/:id`);
+  console.log(`  /update-treatment/:id -> ${medHost}/update-treatment/:id`);
+  console.log(`  /delete-treatment/:id -> ${medHost}/delete-treatment/:id`);
 });
