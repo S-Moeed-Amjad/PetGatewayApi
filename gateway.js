@@ -125,7 +125,7 @@ safeMount("/ml", config.services.ml);
 // --- Payment APIs ---
 safeMount(
   "/stripeCheckout",
-  "https://stripe.faithdiscipline.org.uk/stripe-checkout.php"
+  "https://stripe.faithdiscipline.org.uk/stripe/stripe-checkout.php"
 );
 safeMount(
   "/getAllPayments",
